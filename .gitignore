@@ -289,3 +289,7 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+# Chalice
+.chalice/deployments/
+.chalice/venv/
