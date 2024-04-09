@@ -291,5 +291,4 @@ $RECYCLE.BIN/
 *.lnk
 
 # Chalice
-.chalice/deployments/
-.chalice/venv/
+.chalice/
