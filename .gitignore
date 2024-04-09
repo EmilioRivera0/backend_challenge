@@ -291,4 +291,4 @@ $RECYCLE.BIN/
 *.lnk
 
 # Chalice
-.chalice/
+backend_challenge/.chalice/
