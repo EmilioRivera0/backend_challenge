@@ -61,11 +61,13 @@ def unit_measure_endpoint():
     # save the json body in a dictionary
     body = app.current_request.json_body
 
+    # return error if no json body is provided
+    if (body == None or len(body) == 0) and app.current_request.method != 'GET':
+        return Response('No body provided', status_code=406)
+
+
     # create
     if app.current_request.method == 'POST':
-        # return error if no json body is provided
-        if body == None or len(body) == 0:
-            return Response('No body provided', status_code=406)
         # verify if the required elements are present in the body json
         if not 'name' in body:
             return Response("Body needs 'name' element", status_code=406)
@@ -102,9 +104,6 @@ def unit_measure_endpoint():
 
     # update
     elif app.current_request.method == 'PUT':
-        # return error if no json body is provided
-        if body == None or len(body) == 0:
-            return Response('No body provided', status_code=406)
         # verify if the required elements are present in the body json
         if not ('id' in body and 'name' in body):
             return Response("Body needs 'id' and 'name' elements", status_code=406)
@@ -121,9 +120,6 @@ def unit_measure_endpoint():
     
     # delete
     elif app.current_request.method == 'DELETE':
-        # return error if no json body is provided
-        if body == None or len(body) == 0:
-            return Response('No body provided', status_code=406)
         # verify if the required elements are present in the body json
         if not 'id' in body:
             return Response("Body needs 'id' element", status_code=406)
@@ -143,11 +139,12 @@ def products_endpoint():
     # save the json body in a dictionary
     body = app.current_request.json_body
 
+    # return error if no json body is provided
+    if (body == None or len(body) == 0) and app.current_request.method != 'GET':
+        return Response('No body provided', status_code=406)
+
     # create
     if app.current_request.method == 'POST':
-        # return error if no json body is provided
-        if body == None or len(body) == 0:
-            return Response('No body provided', status_code=406)
         # verify if the required elements are present in the body json
         if not ('name' in body and 'price' in body and 'um_id' in body):
             return Response("Body needs 'name', 'price' and 'um_id' elements", status_code=406)
@@ -191,9 +188,6 @@ def products_endpoint():
 
     # update
     elif app.current_request.method == 'PUT':
-        # return error if no json body is provided
-        if body == None or len(body) == 0:
-            return Response('No body provided', status_code=406)
         # verify if the required elements are present in the body json
         if not ('name' in body and 'price' in body and 'um_id' in body):
             return Response("Body needs 'name', 'price' and 'um_id' elements", status_code=406)
@@ -217,9 +211,6 @@ def products_endpoint():
     
     # delete
     elif app.current_request.method == 'DELETE':
-        # return error if no json body is provided
-        if body == None or len(body) == 0:
-            return Response('No body provided', status_code=406)
         # verify if the required elements are present in the body json
         if not 'name' in body:
             return Response("Body needs 'name' element", status_code=406)
@@ -238,11 +229,12 @@ def sales_endpoint():
     # save the json body in a dictionary
     body = app.current_request.json_body
 
+    # return error if no json body is provided
+    if (body == None or len(body) == 0) and app.current_request.method != 'GET':
+        return Response('No body provided', status_code=406)
+
     # create
     if app.current_request.method == 'POST':
-        # return error if no json body is provided
-        if body == None or len(body) == 0:
-            return Response('No body provided', status_code=406)
         # verify if the required elements are present in the body json
         if not ('p_name' in body and 'quantity' in body):
             return Response("Body needs 'p_name' and 'quantity' elements", status_code=406)
@@ -254,7 +246,7 @@ def sales_endpoint():
                 session.add(sa)
                 session.commit()
         except sqlalchemy.exc.IntegrityError:
-            return Response("p_name does not exist in the db", status_code=404)
+            return Response("'p_name' does not exist in the db", status_code=404)
         # catch any other errors
         except:
             return Response("An error occured", status_code=500)
@@ -263,46 +255,32 @@ def sales_endpoint():
     
     # get
     elif app.current_request.method == 'GET':
-        # get all rows if no 'p_name' element is specified in body
-        if body == None or len(body) == 0:
-            with Session() as session:
+        with Session() as session:
+            # get all rows if no 'p_name' element is specified in body
+            if body == None or len(body) == 0:
                 # get all rows from sales table
                 result = session.execute(select(Sales)).all()
-                # if product does not exist
-                if result == None or len(result) == 0:
-                    return Response("Element not found", status_code=404)
-                sum = {}
-                # obtain the sum of the quantity of units sold and earned amount for each product
-                for it in result:
-                    # first time product is found
-                    if not it[0].p_name in sum:
-                        # get the price of the product
-                        product = session.execute(select(Products).where(Products.name == it[0].p_name)).fetchone()[0]
-                        sum[it[0].p_name] = {'quantity': 0, 'amount': product.price}
-                    # update the quantity of sold units of the given product
-                    sum[it[0].p_name]['quantity'] += it[0].quantity
-            # obtain the total earned amount of each product
-            for it in sum.keys():
-                sum[it]['amount'] = sum[it]['amount'] * sum[it]['quantity']
-            # serialize sum dictionary
-            sum = dumps(sum)
-            return Response(sum, status_code=200)
-        # check if 'p_name' element is contained in the body
-        if not 'p_name' in body:
-            return Response("Body needs 'p_name' element", status_code=406) 
-        # get the rows of the specified product
-        with Session() as session:
-            result = session.execute(select(Sales).where(Sales.p_name == body['p_name'])).all()
-            # if product does not exist in the sales table
+            # check if 'p_name' element is contained in the body
+            elif not 'p_name' in body:
+                return Response("Body needs 'p_name' element", status_code=406) 
+            else:
+                result = session.execute(select(Sales).where(Sales.p_name == body['p_name'])).all()
+            # if product does not exist
             if result == None or len(result) == 0:
                 return Response("Element not found", status_code=404)
-            # obtain the sum of the quantity of units sold and earned amount for the specified product
-            # get the price of the product
-            product = session.execute(select(Products).where(Products.name == result[0][0].p_name)).fetchone()[0]
-            sum = {'quantity': 0, 'amount': product.price}
-            # obtain the total amount of units sold
+            sum = {}
+            # obtain the sum of the quantity of units sold and earned amount for each product
             for it in result:
-                sum['quantity'] += it[0].quantity
+                # first time product is found
+                if not it[0].p_name in sum:
+                    # get the price of the product
+                    product = session.execute(select(Products).where(Products.name == it[0].p_name)).fetchone()[0]
+                    sum[it[0].p_name] = {'quantity': 0, 'amount': product.price}
+                # update the quantity of sold units of the given product
+                sum[it[0].p_name]['quantity'] += it[0].quantity
+        # obtain the total earned amount of each product
+        for it in sum.keys():
+            sum[it]['amount'] = sum[it]['amount'] * sum[it]['quantity']
         # serialize sum dictionary
         sum = dumps(sum)
         return Response(sum, status_code=200)
