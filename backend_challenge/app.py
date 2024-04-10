@@ -1,7 +1,8 @@
 # dependencies ------------>
-from sqlalchemy import Column, Integer, String, Double, Date, ForeignKey, create_engine, select, update, delete
+from sqlalchemy import Column, Integer, String, Double, DateTime, ForeignKey, create_engine, select, update, delete
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from chalice import Chalice, Response
+from datetime import datetime
 import sqlalchemy.exc
 from json import dumps
 import psycopg2
@@ -47,7 +48,7 @@ class Sales(Base):
     id = Column(Integer, primary_key=True) #PK
     p_name = Column(ForeignKey('products.name'))
     quantity = Column(Double)
-    date = Column(Date)
+    date = Column(DateTime, default=datetime.now)
     # establish the relationship with Products
     products = relationship('Products', back_populates='sales')
 
@@ -150,7 +151,7 @@ def products_endpoint():
         # verify if the required elements are present in the body json
         if not ('name' in body and 'price' in body and 'um_id' in body):
             return Response("Body needs 'name', 'price' and 'um_id' elements", status_code=406)
-        # initialize UnitMeasure object with body data and add it to the db
+        # initialize Product object with body data and add it to the db
         pr = Products(name=body['name'], price=body['price'], um_id=body['um_id'])
         # if um_id does not exist, catch IntegrityError and return feedback to the client
         try:
@@ -234,4 +235,74 @@ def products_endpoint():
 
 @app.route('/sales', methods=['POST','GET'])
 def sales_endpoint():
-    pass
+    # save the json body in a dictionary
+    body = app.current_request.json_body
+
+    # create
+    if app.current_request.method == 'POST':
+        # return error if no json body is provided
+        if body == None or len(body) == 0:
+            return Response('No body provided', status_code=406)
+        # verify if the required elements are present in the body json
+        if not ('p_name' in body and 'quantity' in body):
+            return Response("Body needs 'p_name' and 'quantity' elements", status_code=406)
+        # initialize Sales object with body data and add it to the db
+        sa = Sales(p_name=body['p_name'], quantity=body['quantity'])
+        # if p_name does not exist, catch IntegrityError and return feedback to the client
+        try:
+            with Session() as session:
+                session.add(sa)
+                session.commit()
+        except sqlalchemy.exc.IntegrityError:
+            return Response("p_name does not exist in the db", status_code=404)
+        # catch any other errors
+        except:
+            return Response("An error occured", status_code=500)
+
+        return Response("Sale created successfully", status_code=201)
+    
+    # get
+    elif app.current_request.method == 'GET':
+        # get all rows if no 'p_name' element is specified in body
+        if body == None or len(body) == 0:
+            with Session() as session:
+                # get all rows from sales table
+                result = session.execute(select(Sales)).all()
+                # if product does not exist
+                if result == None or len(result) == 0:
+                    return Response("Element not found", status_code=404)
+                sum = {}
+                # obtain the sum of the quantity of units sold and earned amount for each product
+                for it in result:
+                    # first time product is found
+                    if not it[0].p_name in sum:
+                        # get the price of the product
+                        product = session.execute(select(Products).where(Products.name == it[0].p_name)).fetchone()[0]
+                        sum[it[0].p_name] = {'quantity': 0, 'amount': product.price}
+                    # update the quantity of sold units of the given product
+                    sum[it[0].p_name]['quantity'] += it[0].quantity
+            # obtain the total earned amount of each product
+            for it in sum.keys():
+                sum[it]['amount'] = sum[it]['amount'] * sum[it]['quantity']
+            # serialize sum dictionary
+            sum = dumps(sum)
+            return Response(sum, status_code=200)
+        # check if 'p_name' element is contained in the body
+        if not 'p_name' in body:
+            return Response("Body needs 'p_name' element", status_code=406) 
+        # get the rows of the specified product
+        with Session() as session:
+            result = session.execute(select(Sales).where(Sales.p_name == body['p_name'])).all()
+            # if product does not exist in the sales table
+            if result == None or len(result) == 0:
+                return Response("Element not found", status_code=404)
+            # obtain the sum of the quantity of units sold and earned amount for the specified product
+            # get the price of the product
+            product = session.execute(select(Products).where(Products.name == result[0][0].p_name)).fetchone()[0]
+            sum = {'quantity': 0, 'amount': product.price}
+            # obtain the total amount of units sold
+            for it in result:
+                sum['quantity'] += it[0].quantity
+        # serialize sum dictionary
+        sum = dumps(sum)
+        return Response(sum, status_code=200)
