@@ -81,25 +81,11 @@ def unit_measure_endpoint():
     
     # get
     elif app.current_request.method == 'GET':
-        # get all rows if no 'id' element is specified in body
-        if body == None or len(body) == 0:
-            with Session() as session:
-                result = session.execute(select(UnitMeasures)).all()
-            # serialize data into a list of dictionaries and return it
-            result = [{'id': it[0].id, 'name': it[0].name} for it in result]
-            result = dumps(result)
-            return Response(result, status_code=200)
-        # check if 'id' element is contained in the body
-        if not 'id' in body:
-            return Response("Body needs 'id' element", status_code=406)
-        # get the specified row
         with Session() as session:
-            result = session.execute(select(UnitMeasures).where(UnitMeasures.id == body['id'])).fetchone()
-        # if element does not exist in the db
-        if result == None:
-            return Response("Element not found", status_code=404)
-        result = dumps({"id": result[0].id, "name": result[0].name})
-
+            result = session.execute(select(UnitMeasures)).all()
+        # serialize data into a list of dictionaries and return it
+        result = [{'id': it[0].id, 'name': it[0].name} for it in result]
+        result = dumps(result)
         return Response(result, status_code=200)
 
     # update
@@ -134,6 +120,18 @@ def unit_measure_endpoint():
 
         return Response("UnitMeasure deleted successfully", status_code=201)
 
+@app.route('/unitmeasures/{id}', methods=['GET'])
+def unit_measure_endpoint(id):
+    # get the specified row
+    with Session() as session:
+        result = session.execute(select(UnitMeasures).where(UnitMeasures.id == id)).fetchone()
+    # if element does not exist in the db
+    if result == None:
+        return Response("Element not found", status_code=404)
+    result = dumps({"id": result[0].id, "name": result[0].name})
+
+    return Response(result, status_code=200)
+
 @app.route('/products', methods=['POST','GET','PUT','DELETE'])
 def products_endpoint():
     # save the json body in a dictionary
@@ -165,25 +163,11 @@ def products_endpoint():
     
     # get
     elif app.current_request.method == 'GET':
-        # get all rows if no 'name' element is specified in body
-        if body == None or len(body) == 0:
-            with Session() as session:
-                result = session.execute(select(Products)).all()
-            # serialize data into a list of dictionaries and return it
-            result = [{'name': it[0].name, 'price': it[0].price, 'um_id': it[0].um_id} for it in result]
-            result = dumps(result)
-            return Response(result, status_code=200)
-        # check if 'name' element is contained in the body
-        if not 'name' in body:
-            return Response("Body needs 'name' element", status_code=406)
-        # get the specified row
         with Session() as session:
-            result = session.execute(select(Products).where(Products.name == body['name'])).fetchone()
-        # if element does not exist in the db
-        if result == None:
-            return Response("Element not found", status_code=404)
-        result = dumps({'name': result[0].name, 'price': result[0].price, 'um_id': result[0].um_id})
-
+            result = session.execute(select(Products)).all()
+        # serialize data into a list of dictionaries and return it
+        result = [{'name': it[0].name, 'price': it[0].price, 'um_id': it[0].um_id} for it in result]
+        result = dumps(result)
         return Response(result, status_code=200)
 
     # update
@@ -224,6 +208,18 @@ def products_endpoint():
             session.commit()
         return Response("Product deleted successfully", status_code=201)
 
+@app.route('/products/{name}', methods=['GET'])
+def unit_measure_endpoint(name):
+    # get the specified row
+    with Session() as session:
+        result = session.execute(select(Products).where(Products.name == name)).fetchone()
+    # if element does not exist in the db
+    if result == None:
+        return Response("Element not found", status_code=404)
+    result = dumps({"name": result[0].name, "price": result[0].price, 'um_id': result[0].um_id})
+
+    return Response(result, status_code=200)
+
 @app.route('/sales', methods=['POST','GET'])
 def sales_endpoint():
     # save the json body in a dictionary
@@ -256,31 +252,44 @@ def sales_endpoint():
     # get
     elif app.current_request.method == 'GET':
         with Session() as session:
-            # get all rows if no 'p_name' element is specified in body
-            if body == None or len(body) == 0:
-                # get all rows from sales table
-                result = session.execute(select(Sales)).all()
-            # check if 'p_name' element is contained in the body
-            elif not 'p_name' in body:
-                return Response("Body needs 'p_name' element", status_code=406) 
-            else:
-                result = session.execute(select(Sales).where(Sales.p_name == body['p_name'])).all()
-            # if product does not exist
-            if result == None or len(result) == 0:
-                return Response("Element not found", status_code=404)
-            sum = {}
-            # obtain the sum of the quantity of units sold and earned amount for each product
-            for it in result:
-                # first time product is found
-                if not it[0].p_name in sum:
-                    # get the price of the product
-                    product = session.execute(select(Products).where(Products.name == it[0].p_name)).fetchone()[0]
-                    sum[it[0].p_name] = {'quantity': 0, 'amount': product.price}
-                # update the quantity of sold units of the given product
-                sum[it[0].p_name]['quantity'] += it[0].quantity
-        # obtain the total earned amount of each product
-        for it in sum.keys():
-            sum[it]['amount'] = sum[it]['amount'] * sum[it]['quantity']
-        # serialize sum dictionary
-        sum = dumps(sum)
-        return Response(sum, status_code=200)
+            result = session.execute(select(Sales)).all()
+        sum = {}
+        # obtain the sum of the quantity of units sold and earned amount for each product
+        for it in result:
+            # first time product is found
+            if not it[0].p_name in sum:
+                # get the price of the product
+                product = session.execute(select(Products).where(Products.name == it[0].p_name)).fetchone()[0]
+                sum[it[0].p_name] = {'quantity': 0, 'amount': product.price}
+            # update the quantity of sold units of the given product
+            sum[it[0].p_name]['quantity'] += it[0].quantity
+    # obtain the total earned amount of each product
+    for it in sum.keys():
+        sum[it]['amount'] = sum[it]['amount'] * sum[it]['quantity']
+    # serialize sum dictionary
+    sum = dumps(sum)
+    return Response(sum, status_code=200)
+    
+@app.route('/sales/{p_name}', methods=['POST','GET'])
+def sales_endpoint(p_name):
+    with Session() as session:
+        result = session.execute(select(Sales).where(Sales.p_name == p_name)).all()
+        # if product does not exist
+        if result == None or len(result) == 0:
+            return Response("Element not found", status_code=404)
+        sum = {}
+        # obtain the sum of the quantity of units sold and earned amount for each product
+        for it in result:
+            # first time product is found
+            if not it[0].p_name in sum:
+                # get the price of the product
+                product = session.execute(select(Products).where(Products.name == it[0].p_name)).fetchone()[0]
+                sum[it[0].p_name] = {'quantity': 0, 'amount': product.price}
+            # update the quantity of sold units of the given product
+            sum[it[0].p_name]['quantity'] += it[0].quantity
+    # obtain the total earned amount of each product
+    for it in sum.keys():
+        sum[it]['amount'] = sum[it]['amount'] * sum[it]['quantity']
+    # serialize sum dictionary
+    sum = dumps(sum)
+    return Response(sum, status_code=200)
