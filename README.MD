@@ -23,7 +23,7 @@
 #### Get the specified UnitMeasure
 
 ```http
-  GET /unitmeasures
+  GET /unitmeasures/<id>
 ```
 
 | Parameter | Type     | Description                |
@@ -75,7 +75,7 @@
 #### Get the specified Product
 
 ```http
-  GET /products
+  GET /products/<name>
 ```
 
 | Parameter | Type     | Description                |
@@ -127,7 +127,7 @@
 #### Get the quantity and earned amount of the specified product
 
 ```http
-  GET /sales
+  GET /sales/<p_name>
 ```
 
 | Parameter | Type     | Description                |
